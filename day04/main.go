@@ -7,9 +7,33 @@ import (
 	"os"
 )
 
+type point struct {
+	x int
+	y int
+}
+
+type board []string
+
+func (b board) getPoint(p point) byte {
+	x, y := p.x, p.y
+	height := len(b)
+	var width int
+	if x <= height-1 && x >= 0 {
+		width = len(b[x])
+	} else {
+		return '.'
+	}
+
+	if y < 0 || y > width-1 {
+		return '.'
+	}
+
+	return b[x][y]
+}
+
 func main() {
 	var fname string
-	var lines []string
+	var lines board
 
 	if len(os.Args) > 1 {
 		fname = os.Args[1]
@@ -31,29 +55,29 @@ func main() {
 
 	fmt.Printf("Read %d lines from %s\n", len(lines), fname)
 
-	var xlocs [][]int
+	var xlocs []point
 
 	for i, l := range lines {
 		for j, c := range l {
 			if c == 'X' {
-				xlocs = append(xlocs, []int{i, j})
+				xlocs = append(xlocs, point{i, j})
 			}
 		}
 	}
 
 	ans1 := 0
 	for _, loc := range xlocs {
-		ans1 += checkFromX(lines, loc[0], loc[1])
+		ans1 += checkFromX(lines, loc)
 	}
 
 	fmt.Printf("Found %d XMASes\n", ans1)
 
-	var alocs [][]int
+	var alocs []point
 
 	for i, l := range lines {
 		for j, c := range l {
 			if c == 'A' {
-				alocs = append(alocs, []int{i, j})
+				alocs = append(alocs, point{i, j})
 			}
 		}
 	}
@@ -61,7 +85,7 @@ func main() {
 	ans2 := 0
 
 	for _, loc := range alocs {
-		if checkA(lines, loc[0], loc[1]) {
+		if checkA(lines, loc) {
 			ans2++
 		}
 	}
@@ -70,71 +94,52 @@ func main() {
 
 }
 
-func checkFromX(lines []string, x int, y int) int {
+func checkFromX(b board, p point) int {
+	x, y := p.x, p.y
 	count := 0
 
-	if x >= 3 {
-		if lines[x-1][y] == 'M' && lines[x-2][y] == 'A' && lines[x-3][y] == 'S' {
-			count++
-		}
-
-		if y >= 3 {
-			if lines[x-1][y-1] == 'M' && lines[x-2][y-2] == 'A' && lines[x-3][y-3] == 'S' {
-				count++
-			}
-		}
-
-		if y <= len(lines)-4 {
-			if lines[x-1][y+1] == 'M' && lines[x-2][y+2] == 'A' && lines[x-3][y+3] == 'S' {
-				count++
-			}
-		}
-
+	if b.getPoint(point{x - 1, y}) == 'M' && b.getPoint(point{x - 2, y}) == 'A' && b.getPoint(point{x - 3, y}) == 'S' {
+		count++
 	}
 
-	if x <= len(lines[x])-4 {
-		if lines[x+1][y] == 'M' && lines[x+2][y] == 'A' && lines[x+3][y] == 'S' {
-			count++
-		}
-
-		if y >= 3 {
-			if lines[x+1][y-1] == 'M' && lines[x+2][y-2] == 'A' && lines[x+3][y-3] == 'S' {
-				count++
-			}
-		}
-
-		if y <= len(lines)-4 {
-			if lines[x+1][y+1] == 'M' && lines[x+2][y+2] == 'A' && lines[x+3][y+3] == 'S' {
-				count++
-			}
-		}
-
+	if b.getPoint(point{x - 1, y - 1}) == 'M' && b.getPoint(point{x - 2, y - 2}) == 'A' && b.getPoint(point{x - 3, y - 3}) == 'S' {
+		count++
 	}
 
-	if y >= 3 {
-		if lines[x][y-1] == 'M' && lines[x][y-2] == 'A' && lines[x][y-3] == 'S' {
-			count++
-		}
+	if b.getPoint(point{x - 1, y + 1}) == 'M' && b.getPoint(point{x - 2, y + 2}) == 'A' && b.getPoint(point{x - 3, y + 3}) == 'S' {
+		count++
 	}
 
-	if y <= len(lines)-4 {
-		if lines[x][y+1] == 'M' && lines[x][y+2] == 'A' && lines[x][y+3] == 'S' {
-			count++
-		}
+	if b.getPoint(point{x, y - 1}) == 'M' && b.getPoint(point{x, y - 2}) == 'A' && b.getPoint(point{x, y - 3}) == 'S' {
+		count++
+	}
+
+	if b.getPoint(point{x, y + 1}) == 'M' && b.getPoint(point{x, y + 2}) == 'A' && b.getPoint(point{x, y + 3}) == 'S' {
+		count++
+	}
+
+	if b.getPoint(point{x + 1, y}) == 'M' && b.getPoint(point{x + 2, y}) == 'A' && b.getPoint(point{x + 3, y}) == 'S' {
+		count++
+	}
+
+	if b.getPoint(point{x + 1, y - 1}) == 'M' && b.getPoint(point{x + 2, y - 2}) == 'A' && b.getPoint(point{x + 3, y - 3}) == 'S' {
+		count++
+	}
+
+	if b.getPoint(point{x + 1, y + 1}) == 'M' && b.getPoint(point{x + 2, y + 2}) == 'A' && b.getPoint(point{x + 3, y + 3}) == 'S' {
+		count++
 	}
 
 	return count
 }
 
-func checkA(lines []string, x int, y int) bool {
-	if x == 0 || y == 0 || x > len(lines)-2 || y > len(lines[x])-2 {
-		return false
-	}
+func checkA(b board, p point) bool {
+	x, y := p.x, p.y
 
-	a, b, c, d := lines[x-1][y-1], lines[x-1][y+1], lines[x+1][y-1], lines[x+1][y+1]
+	ul, ur, bl, br := b.getPoint(point{x - 1, y - 1}), b.getPoint(point{x - 1, y + 1}), b.getPoint(point{x + 1, y - 1}), b.getPoint(point{x + 1, y + 1})
 
-	if (a == 'M' && d == 'S') || (a == 'S' && d == 'M') {
-		if (b == 'M' && c == 'S') || (b == 'S' && c == 'M') {
+	if (ul == 'M' && br == 'S') || (ul == 'S' && br == 'M') {
+		if (ur == 'M' && bl == 'S') || (ur == 'S' && bl == 'M') {
 			return true
 		}
 	}
