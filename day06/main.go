@@ -81,7 +81,6 @@ func main() {
 
 	x := 0
 	obstacles := make([]point, 0)
-	candidates := make([]point, 0)
 
 	var origin point
 	var l string
@@ -94,8 +93,6 @@ func main() {
 				obstacles = append(obstacles, point{x, y})
 			case '^':
 				origin = point{x, y}
-			case '.':
-				candidates = append(candidates, point{x, y})
 			}
 		}
 		x++
@@ -113,20 +110,18 @@ func main() {
 	}
 
 	visited := make(map[point]bool)
-	visited[origin] = true
+	//visited[origin] = true
 
 	for s0.onMap(g) {
-		g = s0.step(g)
 		visited[g.loc] = true
+		g = s0.step(g)
 	}
 
-	fmt.Println(len(visited) - 1) //includes the off-the-board position
+	fmt.Println(len(visited))
 
 	count := 0
 
-	fmt.Println("Brute forcing", len(candidates), "candidate positions")
-
-	for _, c := range candidates {
+	for c := range visited {
 		obs := make([]point, len(obstacles)+1)
 		copy(obs, obstacles)
 		obs[len(obstacles)] = c
