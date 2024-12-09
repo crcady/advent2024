@@ -84,6 +84,66 @@ func compact(f []block, fs []block) []block {
 	return compacted
 }
 
+type typedBlock struct {
+	isFile bool
+	block  block
+}
+
+func compact2(f []block, fs []block) []block {
+	files := make([]block, len(f))
+	copy(files, f)
+
+	freespaces := make([]block, len(fs))
+	copy(freespaces, fs)
+
+	compacted := make([]block, 0, len(files))
+
+	entries := make([]typedBlock, 0)
+
+	for i := range files {
+		entries = append(entries, typedBlock{true, files[i]})
+		if len(freespaces) > i {
+			entries = append(entries, typedBlock{false, freespaces[i]})
+		}
+	}
+
+	for len(compacted) < len(files) {
+		next := entries[0]
+
+		if next.isFile {
+			compacted = append(compacted, next.block)
+			entries = entries[1:]
+			continue
+		}
+
+		l := next.block.length
+		movedOne := false
+
+		for i := len(entries) - 1; i > 0; i-- { //Not an off-by-one, dont need to look at zero-th entry
+			entry := entries[i]
+			if !entry.isFile {
+				continue
+			}
+
+			if entry.block.length > l {
+				continue
+			}
+
+			compacted = append(compacted, block{entry.block.id, next.block.start, entry.block.length})
+			entries[0].block = block{next.block.id, next.block.start + entry.block.length, next.block.length - entry.block.length}
+			entries = append(entries[:i], entries[i+1:]...)
+			movedOne = true
+
+			break
+		}
+
+		if !movedOne {
+			entries = entries[1:]
+		}
+	}
+	return compacted
+}
+
 func main() {
 	fname := "example.txt"
 
@@ -124,4 +184,7 @@ func main() {
 
 	log.Println(checksum(compacted))
 
+	compacted2 := compact2(files, freespaces)
+
+	log.Println(checksum(compacted2))
 }
