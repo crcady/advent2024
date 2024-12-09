@@ -37,12 +37,6 @@ func (p1 point) antinodes2(p2 point, height int, width int) []point {
 		p = point{p.x - dx, p.y - dy}
 	}
 
-	p = point{p1.x + dx, p1.y + dy}
-	for p.check(height, width) {
-		ans = append(ans, p)
-		p = point{p.x + dx, p.y + dy}
-	}
-
 	p = p2
 	for p.check(height, width) {
 		ans = append(ans, p)
