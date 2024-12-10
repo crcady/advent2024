@@ -24,20 +24,6 @@ type point struct {
 	y int
 }
 
-func (p point) str() string {
-	return "(" + strconv.Itoa(p.x) + "," + strconv.Itoa(p.y) + ")"
-}
-
-type path []point
-
-func (pth path) str() string {
-	res := ""
-	for _, p := range pth {
-		res += p.str()
-	}
-	return res
-}
-
 type topoMap [][]int
 
 func (tm topoMap) zeros() []point {
@@ -102,17 +88,14 @@ func (tm topoMap) score(p point) int {
 }
 
 func (tm topoMap) rating(start point) int {
-	visited := make(map[string]bool)
-	toVisit := make([]path, 0)
+	toVisit := make([]point, 0)
 	res := 0
 
-	toVisit = append(toVisit, path{start})
+	toVisit = append(toVisit, start)
 	for len(toVisit) > 0 {
-		curPath := toVisit[len(toVisit)-1]
+		p := toVisit[len(toVisit)-1]
 		toVisit = toVisit[:len(toVisit)-1]
-		visited[curPath.str()] = true
 
-		p := curPath[len(curPath)-1]
 		if tm.height(p) == 9 {
 			res++
 			continue
@@ -129,16 +112,8 @@ func (tm topoMap) rating(start point) int {
 				continue
 			}
 
-			pth := make(path, len(curPath))
-			copy(pth, curPath)
-			pth = append(pth, c)
-
-			if visited[pth.str()] {
-				continue
-			}
-
 			if tm.height(c) == tm.height(p)+1 {
-				toVisit = append(toVisit, pth)
+				toVisit = append(toVisit, c)
 			}
 		}
 
