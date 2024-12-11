@@ -11,11 +11,6 @@ import (
 type stone int
 type stones []stone
 
-type stoneGroup struct {
-	ss     stones
-	blinks int
-}
-
 func (s stone) blink() stones {
 	if s == 0 {
 		return []stone{1}
@@ -38,38 +33,6 @@ func newStone(s string) stone {
 	}
 
 	return stone(num)
-}
-
-func (ss stones) blink() stones {
-	res := make(stones, 0, len(ss))
-	for _, s := range ss {
-		res = append(res, s.blink()...)
-	}
-	return res
-}
-
-func (sg stoneGroup) blink() stoneGroup {
-	return stoneGroup{sg.ss.blink(), sg.blinks + 1}
-}
-
-func (sg stoneGroup) split() []stoneGroup {
-	stones := sg.ss
-	i := 0
-	res := make([]stoneGroup, 0, 1000)
-
-	for {
-		j := i + 1000
-		if j > len(stones) {
-			j = len(stones)
-			res = append(res, stoneGroup{stones[i:j], sg.blinks})
-			break
-		} else {
-			res = append(res, stoneGroup{stones[i:j], sg.blinks})
-			i = j
-		}
-	}
-
-	return res
 }
 
 func main() {
@@ -95,31 +58,50 @@ func main() {
 	}
 
 	log.Println("There are", len(stones), "stones. About to blink...")
+
+	stone_map := make(map[stone]int)
+	for _, s := range stones {
+		stone_map[s] = stone_map[s] + 1
+	}
 	for i := 0; i < 25; i++ {
-		stones = stones.blink()
-	}
-
-	log.Println("After 25 blinks there are", len(stones), "stones")
-
-	notDone := []stoneGroup{{stones, 25}}
-	count := 0
-	const threshold = 1_000_000
-
-	for len(notDone) > 0 {
-		sg := notDone[len(notDone)-1]
-		notDone = notDone[:len(notDone)-1]
-		sg = sg.blink()
-
-		if sg.blinks == 75 {
-			count += len(sg.ss)
-			continue
+		temp_map := make(map[stone]int)
+		for k, v := range stone_map {
+			temp_map[k] = v
 		}
 
-		if len(sg.ss) > threshold {
-			notDone = append(notDone, sg.split()...)
-		} else {
-			notDone = append(notDone, sg)
+		stone_map = make(map[stone]int)
+
+		for k, v := range temp_map {
+			ss := k.blink()
+			for _, s := range ss {
+				stone_map[s] = stone_map[s] + v
+			}
 		}
 	}
-	log.Println("After 75 blinks there are", count, "stones")
+	ans1 := 0
+	for _, v := range stone_map {
+		ans1 += v
+	}
+	log.Println("After 25 blinks there are", len(stone_map), "unique stones and", ans1, "total stones")
+
+	for i := 0; i < 50; i++ {
+		temp_map := make(map[stone]int)
+		for k, v := range stone_map {
+			temp_map[k] = v
+		}
+
+		stone_map = make(map[stone]int)
+
+		for k, v := range temp_map {
+			ss := k.blink()
+			for _, s := range ss {
+				stone_map[s] = stone_map[s] + v
+			}
+		}
+	}
+	ans2 := 0
+	for _, v := range stone_map {
+		ans2 += v
+	}
+	log.Println("After 75 blinks there are", len(stone_map), "unique stones and", ans2, "total stones")
 }
