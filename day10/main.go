@@ -24,6 +24,22 @@ type point struct {
 	y int
 }
 
+func (p point) up() point {
+	return point{p.x - 1, p.y}
+}
+
+func (p point) down() point {
+	return point{p.x + 1, p.y}
+}
+
+func (p point) left() point {
+	return point{p.x, p.y - 1}
+}
+
+func (p point) right() point {
+	return point{p.x, p.y + 1}
+}
+
 type topoMap [][]int
 
 func (tm topoMap) zeros() []point {
@@ -47,7 +63,7 @@ func (tm topoMap) height(p point) int {
 	return tm[p.x][p.y]
 }
 
-func (tm topoMap) score(p point) int {
+func (tm topoMap) score(p point, onlyVisitOnce bool) int {
 	visited := make(map[point]bool)
 	toVisit := make([]point, 0)
 	res := 0
@@ -56,14 +72,17 @@ func (tm topoMap) score(p point) int {
 	for len(toVisit) > 0 {
 		p := toVisit[len(toVisit)-1]
 		toVisit = toVisit[:len(toVisit)-1]
-		visited[p] = true
 
-		left := point{p.x, p.y - 1}
-		right := point{p.x, p.y + 1}
-		up := point{p.x - 1, p.y}
-		down := point{p.x + 1, p.y}
+		if onlyVisitOnce {
+			visited[p] = true
+		}
 
-		candidates := []point{left, right, up, down}
+		if tm.height(p) == 9 {
+			res++
+			continue
+		}
+
+		candidates := []point{p.up(), p.down(), p.left(), p.right()}
 		for _, c := range candidates {
 			if !tm.valid(c) {
 				continue
@@ -74,52 +93,13 @@ func (tm topoMap) score(p point) int {
 			}
 
 			if tm.height(c) == tm.height(p)+1 {
-				if tm.height(c) == 9 {
-					visited[c] = true
-					res++
-				} else {
-					toVisit = append(toVisit, c)
-				}
-			}
-		}
-
-	}
-	return res
-}
-
-func (tm topoMap) rating(start point) int {
-	toVisit := make([]point, 0)
-	res := 0
-
-	toVisit = append(toVisit, start)
-	for len(toVisit) > 0 {
-		p := toVisit[len(toVisit)-1]
-		toVisit = toVisit[:len(toVisit)-1]
-
-		if tm.height(p) == 9 {
-			res++
-			continue
-		}
-
-		left := point{p.x, p.y - 1}
-		right := point{p.x, p.y + 1}
-		up := point{p.x - 1, p.y}
-		down := point{p.x + 1, p.y}
-
-		candidates := []point{left, right, up, down}
-		for _, c := range candidates {
-			if !tm.valid(c) {
-				continue
-			}
-
-			if tm.height(c) == tm.height(p)+1 {
 				toVisit = append(toVisit, c)
 			}
+
 		}
 
 	}
 	return res
-
 }
 
 func main() {
@@ -147,13 +127,13 @@ func main() {
 
 	ans1 := 0
 	for _, p := range tm.zeros() {
-		ans1 += tm.score(p)
+		ans1 += tm.score(p, true)
 	}
 	log.Println("Answer to first half:", ans1)
 
 	ans2 := 0
 	for _, p := range tm.zeros() {
-		ans2 += tm.rating(p)
+		ans2 += tm.score(p, false)
 	}
 	log.Println("Answer to second half:", ans2)
 
