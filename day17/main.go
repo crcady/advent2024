@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/aclements/go-z3/z3"
 )
 
 const (
@@ -134,6 +136,124 @@ func newMachine(data []byte) *machine {
 	}
 }
 
+type symSolver struct {
+	regA, regB, regC z3.BV
+	ip               int
+	program          []int
+	outputs          int
+	ctx              *z3.Context
+}
+
+func newSymSolver(m *machine) *symSolver {
+	ctx := z3.NewContext(nil)
+	symA := ctx.BVConst("A", 64)
+	symB := ctx.FromInt(int64(m.regB), ctx.BVSort(64)).(z3.BV)
+	symC := ctx.FromInt(int64(m.regC), ctx.BVSort(64)).(z3.BV)
+
+	pCopy := make([]int, len(m.program))
+	copy(pCopy, m.program)
+
+	return &symSolver{
+		regA:    symA,
+		regB:    symB,
+		regC:    symC,
+		ip:      0,
+		program: pCopy,
+		outputs: 0,
+		ctx:     ctx,
+	}
+}
+
+func (ss *symSolver) combo(n int) z3.BV {
+	switch n {
+	case 0, 1, 2, 3:
+		return ss.literal(n)
+	case 4:
+		return ss.regA
+	case 5:
+		return ss.regB
+	case 6:
+		return ss.regC
+	default:
+		panic("Invalid Operand!")
+	}
+}
+
+func (ss *symSolver) literal(n int) z3.BV {
+	return ss.ctx.FromInt(int64(n), ss.ctx.BVSort(64)).(z3.BV)
+}
+
+func (ss *symSolver) solve() int {
+	solver := z3.NewSolver(ss.ctx)
+
+	targetValue := ss.regA
+
+outer:
+	for {
+		opcode := ss.program[ss.ip]
+		operand := ss.program[ss.ip+1]
+		ss.ip += 2
+
+		switch opcode {
+		case op_adv:
+			res := ss.regA.SRsh(ss.combo(operand))
+			ss.regA = res
+		case op_bdv:
+			res := ss.regA.SRsh(ss.combo(operand))
+			ss.regB = res
+		case op_cdv:
+			res := ss.regA.SRsh(ss.combo(operand))
+			ss.regC = res
+		case op_bxl:
+			res := ss.regB.Xor(ss.literal(operand))
+			ss.regB = res
+		case op_bxc:
+			res := ss.regB.Xor(ss.regC)
+			ss.regB = res
+		case op_bst:
+			res := ss.combo(operand).SMod(ss.literal(8))
+			ss.regB = res
+		case op_jnz:
+			if ss.outputs == len(ss.program) {
+				solver.Assert(ss.regA.Eq(ss.literal(0)))
+				break outer
+			}
+
+			solver.Assert(ss.regA.NE(ss.literal(0)))
+			ss.ip = operand // This is always zero...
+		case op_out:
+			outVal := ss.combo(operand).SMod(ss.literal(8))
+			solver.Assert(outVal.Eq(ss.literal(ss.program[ss.outputs])))
+			ss.outputs++
+		}
+	}
+	solver.Assert(targetValue.SGE(ss.literal(0)))
+	sat, err := solver.Check()
+	if !sat {
+		log.Fatal("Failed to find an initial value for A")
+	}
+	lastFound := -1
+
+	for sat && err == nil {
+		model := solver.Model()
+		solvedVal := model.Eval(targetValue, true)
+		if val, _, ok := solvedVal.(z3.BV).AsInt64(); ok {
+			lastFound = int(val)
+			log.Println("Found a value:", val)
+			solver.Assert(targetValue.SLT(ss.literal(int(val))))
+			sat, err = solver.Check()
+		} else {
+			log.Fatal("Failed to retrieve A from model")
+		}
+	}
+
+	if err != nil {
+		log.Fatal("Error while solving constraints:", err)
+	}
+
+	return lastFound
+}
+
 func main() {
 	fname := "example.txt"
 
@@ -147,6 +267,8 @@ func main() {
 	}
 
 	m := newMachine(data)
+	ss := newSymSolver(m) // Safe; doesn't depend on m
+
 	stepCount := 0
 
 	for m.step() {
@@ -155,4 +277,7 @@ func main() {
 
 	log.Printf("Took %d steps and have %d outputs\n", stepCount, len(m.outputs))
 	log.Println(m.output())
+
+	ans2 := ss.solve()
+	log.Println(ans2)
 }
