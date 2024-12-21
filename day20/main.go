@@ -29,6 +29,26 @@ func (p point) right() point {
 	return point{p.x + 1, p.y}
 }
 
+type cheat struct {
+	start, end point
+}
+
+func (c cheat) length() int {
+	dx := c.end.x - c.start.x
+	dy := c.end.y - c.start.y
+
+	if dx < 0 {
+		dx = -dx
+	}
+
+	if dy < 0 {
+		dy = -dy
+	}
+
+	return dx + dy
+
+}
+
 type racetrack struct {
 	course     map[point]bool
 	walls      map[point]bool
@@ -69,7 +89,7 @@ func (rt *racetrack) addLine(line string) {
 	}
 }
 
-func (rt *racetrack) baseline() int {
+func (rt *racetrack) baseline() ([]point, int) {
 	ids := make(map[point]int64)
 
 	g := simple.NewUndirectedGraph()
@@ -91,47 +111,48 @@ func (rt *racetrack) baseline() int {
 
 	pth := path.DijkstraFrom(simple.Node(ids[rt.start]), g)
 
-	_, cost := pth.To(ids[rt.end])
+	nodes, cost := pth.To(ids[rt.end])
 
-	return int(cost)
+	backmap := make(map[int64]point, len(ids))
+	for p, n := range ids {
+		backmap[n] = p
+	}
+
+	points := make([]point, len(nodes))
+	for i, n := range nodes {
+		points[i] = backmap[n.ID()]
+	}
+
+	return points, int(cost)
 }
 
-func (rt *racetrack) cheat(p point) *racetrack {
-	newCourse := make(map[point]bool, len(rt.course)+1)
-	for pc := range rt.course {
-		newCourse[pc] = true
-	}
-	newCourse[p] = true
+func (rt *racetrack) cheats(length int) map[int]int {
+	savings := make(map[cheat]int)
+	path, _ := rt.baseline()
 
-	newWalls := make(map[point]bool, len(rt.walls)-1)
+	for i, first := range path[:len(path)-1] {
+		// All cheats end on the path, or else the program seg faults
+		for j := i + 1; j < len(path); j++ {
+			second := path[j]
 
-	for wc := range rt.walls {
-		if wc != p {
-			newWalls[wc] = true
+			current := cheat{first, second}
+			cheatLength := current.length()
+			if cheatLength > length {
+				continue
+			}
+
+			stepsSkipped := j - i
+			stepsSaved := stepsSkipped - cheatLength
+			if stepsSaved > savings[current] {
+				savings[current] = stepsSaved
+			}
 		}
 	}
 
-	return &racetrack{
-		course: newCourse,
-		walls:  newWalls,
-		start:  rt.start,
-		end:    rt.end,
-		nextY:  0,
-	}
-}
-
-func (rt *racetrack) cheats() map[int]int {
 	freqs := make(map[int]int)
-	baseline := rt.baseline()
-
-	for p := range rt.walls {
-		cheatTrack := rt.cheat(p)
-		cost := cheatTrack.baseline()
-		if cost < baseline {
-			freqs[baseline-cost]++
-		}
+	for _, saved := range savings {
+		freqs[saved]++
 	}
-
 	return freqs
 }
 
@@ -157,13 +178,23 @@ func main() {
 		rt.addLine(line)
 	}
 
-	log.Println("The baseline is:", rt.baseline())
+	_, baseline := rt.baseline()
+	log.Println("The baseline is:", baseline)
+
 	ans1 := 0
-	for savings, count := range rt.cheats() {
+	for savings, count := range rt.cheats(2) {
 		if savings >= 100 {
 			ans1 += count
 		}
 	}
 	log.Println(ans1)
 
+	ans2 := 0
+	for savings, count := range rt.cheats(20) {
+		if savings >= 100 {
+			ans2 += count
+		}
+	}
+
+	log.Println(ans2)
 }
