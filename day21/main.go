@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
 )
+
+var hits, misses int = 0, 0
 
 type point struct {
 	x, y int
@@ -23,7 +25,7 @@ func (p point) move(b byte) point {
 	case 'v':
 		return point{p.x, p.y + 1}
 	default:
-		fmt.Println("Move got a", string(b))
+		log.Println("Move got a", string(b))
 		panic("Invalid direction provided to move()")
 	}
 }
@@ -48,6 +50,7 @@ type keyPad struct {
 	keys      map[point]byte
 	positions map[byte]point
 	next      checker
+	cache     map[string]int
 }
 
 // Checks whether a given point corresponds to a button on the pad
@@ -73,6 +76,12 @@ func (kp keyPad) checkMoves(startKey byte, moves []byte) bool {
 }
 
 func (kp keyPad) check(keys []byte) int {
+	if res, ok := kp.cache[string(keys)]; ok {
+		hits++
+		return res
+	} else {
+		misses++
+	}
 	//fmt.Println("keyPad checking", string(keys))
 	var fromKey byte = 'A'
 
@@ -116,6 +125,7 @@ func (kp keyPad) check(keys []byte) int {
 		fromKey = toKey
 	}
 
+	kp.cache[string(keys)] = cum
 	return cum
 }
 
@@ -190,6 +200,7 @@ func numPad(next checker) keyPad {
 		keys:      keys,
 		positions: positions,
 		next:      next,
+		cache:     make(map[string]int, 0),
 	}
 }
 
@@ -229,6 +240,7 @@ func dirPad(next checker) keyPad {
 		keys:      keys,
 		positions: positions,
 		next:      next,
+		cache:     make(map[string]int, 0),
 	}
 }
 
@@ -246,14 +258,17 @@ func main() {
 	defer file.Close()
 
 	ans1 := 0
-	h := human{}
-	dp2 := dirPad(h)
-	dp1 := dirPad(dp2)
-	np := numPad(dp1)
+	ans2 := 0
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Bytes()
+
+		h := human{}
+		dp2 := dirPad(h)
+		dp1 := dirPad(dp2)
+		np := numPad(dp1)
+
 		cost := np.check(line)
 
 		num, err := strconv.Atoi(string(line[:len(line)-1]))
@@ -262,7 +277,18 @@ func main() {
 		}
 
 		ans1 += cost * num
+
+		var lastChecker checker = h
+		for i := 0; i < 25; i++ {
+			newChecker := dirPad(lastChecker)
+			lastChecker = newChecker
+		}
+		np2 := numPad(lastChecker)
+		cost2 := np2.check(line)
+		ans2 += cost2 * num
+
+		log.Println("Finished", string(line))
 	}
 
-	fmt.Println(ans1)
+	log.Println("Computed", ans1, "and", ans2, "with", hits, "cache hits and", misses, "cache misses")
 }
