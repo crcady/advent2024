@@ -52,50 +52,26 @@ func newOp(op, input1, input2, id string) gate {
 	}
 }
 
-func main() {
-	fname := "example.txt"
+type circuit map[string]gate
 
-	if len(os.Args) > 1 {
-		fname = os.Args[1]
-	}
+func newCircuit() circuit {
+	return map[string]gate{}
+}
 
-	file, err := os.Open(fname)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
+func (c circuit) add(g gate) {
+	c[g.id] = g
+}
 
-	scanner := bufio.NewScanner(file)
-	gates := map[string]gate{}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			break
-		}
-
-		splits := strings.Split(line, ": ")
-		id := splits[0]
-		initial_condition := splits[1]
-		gates[id] = newConst(id, initial_condition)
-	}
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		re := regexp.MustCompile(`([a-z0-9]+) ([A-Z]+) ([a-z0-9]+) -> ([a-z0-9]+)`)
-		matches := re.FindAllStringSubmatch(line, -1)[0]
-		input1 := matches[1]
-		op := matches[2]
-		input2 := matches[3]
-		id := matches[4]
-
-		gates[id] = newOp(op, input1, input2, id)
+func (c circuit) settled() circuit {
+	circ := newCircuit()
+	for k, v := range c {
+		circ[k] = v
 	}
 
 	for {
 		unk_gates := []gate{}
 		known_gates := map[string]string{}
-		for id, g := range gates {
+		for id, g := range circ {
 			if g.status == STATUS_UNK {
 				unk_gates = append(unk_gates, g)
 			} else {
@@ -125,46 +101,96 @@ func main() {
 			switch g.op {
 			case OP_XOR:
 				if status1 != status2 {
-					gates[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
 				} else {
-					gates[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
 				}
 			case OP_OR:
 				if status1 == STATUS_TRUE || status2 == STATUS_TRUE {
-					gates[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
 				} else {
-					gates[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
 				}
 			case OP_AND:
 				if status1 == STATUS_TRUE && status2 == STATUS_TRUE {
-					gates[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_TRUE, g.input1, g.input2}
 				} else {
-					gates[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
+					circ[g.id] = gate{g.id, g.op, STATUS_FALSE, g.input1, g.input2}
 				}
 			}
 		}
 	}
-	zstr := ""
+
+	return circ
+}
+
+func (c circuit) read(prefix string) int64 {
+	bitstr := ""
 	i := 0
 	for {
-		name := fmt.Sprintf("z%02d", i)
-		log.Println(name)
-		if g, ok := gates[name]; ok {
+		name := prefix + fmt.Sprintf("%02d", i)
+		if g, ok := c[name]; ok {
 			if g.status == STATUS_TRUE {
-				zstr = "1" + zstr
+				bitstr = "1" + bitstr
 			} else {
-				zstr = "0" + zstr
+				bitstr = "0" + bitstr
 			}
 			i++
 		} else {
 			break
 		}
 	}
-	log.Println(zstr)
-	ans1, err := strconv.ParseInt(zstr, 2, 64)
+	log.Println(bitstr)
+	res, err := strconv.ParseInt(bitstr, 2, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return res
+}
+
+func main() {
+	fname := "example.txt"
+
+	if len(os.Args) > 1 {
+		fname = os.Args[1]
+	}
+
+	file, err := os.Open(fname)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	circ := newCircuit()
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			break
+		}
+
+		splits := strings.Split(line, ": ")
+		id := splits[0]
+		initial_condition := splits[1]
+		circ.add(newConst(id, initial_condition))
+	}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		re := regexp.MustCompile(`([a-z0-9]+) ([A-Z]+) ([a-z0-9]+) -> ([a-z0-9]+)`)
+		matches := re.FindAllStringSubmatch(line, -1)[0]
+		input1 := matches[1]
+		op := matches[2]
+		input2 := matches[3]
+		id := matches[4]
+
+		circ.add(newOp(op, input1, input2, id))
+	}
+
+	solution1 := circ.settled()
+	ans1 := solution1.read("z")
+
 	log.Println("The answer to part one is", ans1)
 
 }
