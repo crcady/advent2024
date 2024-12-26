@@ -13,6 +13,9 @@ Most of the solutions expect to have the smaller/test input provided in a file n
 
 To solve an actual instance, you **must** provide the filename to the executable, for example `./dayXX input.txt` or `go run . input.txt`.
 
+### Day 24
+Day 24 is the exception to the above. The solution is only half-complete, in the sense that you have to run it multiple times and follow the instructions. I don't want to spoil the challenge, but you'll see what I mean if you get there ;)
+
 ## Dependencies
 I only used two dependencies for this: a set of Z3 bindings and some of the [Gonum](https://www.gonum.org) packages. I used Z3 to automate doing integer or bitvector arithmetic, and Gonum for some graph algorithms. All of the arithmetic could be worked out by hand, and I mostly just used Dijkstra's algorithm from the Gonum package, so it probably would have been faster for me to implement the algorithms myself than learn to use someone else's package, but I wanted to learn how to interact with the broader Go ecosystem.
 
